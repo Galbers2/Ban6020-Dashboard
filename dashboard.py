@@ -3,7 +3,7 @@ import sqlite3
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
-st.set_page_config(layout="wide", page_title="eBay Laptop Analysis")
+st.set_page_config(layout="wide", page_title="Tesla Production and Delivery Analytics")
 
 DB_PATH = "ev_data.db"
 
@@ -141,17 +141,24 @@ with tab1:
             df_volatility['pct_change'] = ((df_volatility['production_units'] - df_volatility['prev_production']) 
                                             / df_volatility['prev_production'] * 100)
             
+            df_volatility['date'] = pd.to_datetime(df_volatility['year'].astype(str) + '-' + df_volatility['month_order'].astype(str) + '-01')
+
             fig_volatility = px.line(
                 df_volatility,
-                x='month_name',
+                x='date',
                 y='pct_change',
                 color='model_name',
-                title='Month-over-Month Production Volatility by Model (%)',
-                labels={'pct_change': 'Production Change (%)', 'month_name': 'Month'},
-                category_orders={"month_name": sorted(df_volatility['month_name'].unique(), 
-                                                       key=lambda x: MONTH_ORDER[x])}
+                title='Annual Month-over-Month Production Volatility by Model (%)',
+                labels={'pct_change': 'Production Change (%)', 'date': 'Year'}
             )
-            st.plotly_chart(fig_volatility, width='stretch')
+
+            fig_volatility.update_xaxes(
+                dtick="M12",           # Show tick every 12 months (yearly)
+                tickformat="%Y",       # Display only the year
+                ticklabelmode="period" # Center year over its 12 months
+            )
+
+            st.plotly_chart(fig_volatility, use_container_width=True)
             
             st.markdown("""
             **Business Insight:** Production volatility analysis reveals which models face the most unpredictable 
@@ -197,24 +204,35 @@ with tab1:
             df_gap['month_order'] = df_gap['month_name'].map(MONTH_ORDER)
             df_gap = df_gap.sort_values(['year', 'month_order'])
             
+            df_gap['date'] = pd.to_datetime(df_gap['year'].astype(str) + '-' + df_gap['month_order'].astype(str) + '-01')
+
             fig_gap = go.Figure()
             
-            for model in df_gap['model_name'].unique():
-                model_data = df_gap[df_gap['model_name'] == model]
-                fig_gap.add_trace(go.Scatter(
-                    x=model_data['month_name'],
-                    y=model_data['inventory_change'],
-                    name=model,
-                    mode='lines+markers'
-                ))
+
+            
+            fig_gap.add_trace(go.Scatter(
+                x=df_gap['date'],  # ← Change from 'month_name' to 'date'
+                y=df_gap['estimated_deliveries'],
+                name='Deliveries',
+                mode='lines+markers',
+                marker_color='red'
+            ))
             
             fig_gap.update_layout(
-                title='Production-Delivery Gap (Inventory Buildup/Drawdown)',
-                xaxis_title='Month',
-                yaxis_title='Inventory Change (Production - Deliveries)',
+                title='Production vs Delivery Gap Over Time',
+                xaxis_title='Year',
+                yaxis_title='Units',
                 hovermode='x unified'
             )
-            st.plotly_chart(fig_gap, width='stretch')
+            
+            # Add this to format the x-axis like the volatility graph
+            fig_gap.update_xaxes(
+                dtick="M12",
+                tickformat="%Y",
+                ticklabelmode="period"
+            )
+            
+            st.plotly_chart(fig_gap, use_container_width=True)
             
             st.markdown("""
             **Business Insight:** The production-delivery gap reveals Tesla's inventory management effectiveness and demand 
